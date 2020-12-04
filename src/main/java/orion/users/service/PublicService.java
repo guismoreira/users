@@ -45,6 +45,7 @@ import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 import orion.users.data.UserDAO;
 import orion.users.model.User;
 import orion.users.util.JavaMailUtil;
+import orion.users.util.ValidateEmail;
 
 @RequestScoped
 @Path("/api/v1/")
@@ -71,26 +72,38 @@ public class PublicService {
     @Produces(MediaType.APPLICATION_JSON)
     @Transactional
     public User createUser(@FormParam("name") final String name, @FormParam("email") final String email,
-            @FormParam("password") final String password) throws WebApplicationException, NotFoundException {
+            @FormParam("password") final String password) throws WebApplicationException, NotFoundException, Exception {
 
         final User usr = new User();
 
-        // in quickMail method, email is checked, if it is equal to one that already
+        // in checkMail method, email is checked, if it is equal to one that already
         // exists in the bank,
         // it does not create
-        if (quickMail(email).equals(false)) {
+        if (checkMail(email).equals(false)) {
 
             if(name.isEmpty() || email.isEmpty() || password.isEmpty()){
                 String message = "No fields can be left empty";
                 throw new NotFoundException(message);
             }
                
-              
+              else if( ValidateEmail.validateMail(email) == false){
+                String message = "Invalid email";
+                throw new NotFoundException(message);
+              }
+
+              else {
+                String hashcode = usr.setHash(userDAO.generateHash());
+                String link = "http://localhost:9080/orion-users-service/isvalid?hash=";
+                JavaMailUtil.sendMail(email, hashcode, link);
+
                 usr.setName(name);
                 usr.setEmail(email);
                 usr.setPassword(password);
                 userDAO.create(usr);
-                    return usr;
+              }
+                  
+
+                return usr;
 
         } else {
                 String message = "The informed e-mail already exist in the service";
@@ -98,45 +111,41 @@ public class PublicService {
         }
     }
 
+    /**
+     * Method created exclusively to be used in integration tests, in situations
+     * where you need to change the Verified attribute to TRUE state
+     * @param email
+     * @return
+     */
+
     @POST
     @APIResponse(responseCode = "200", description = "successfully")
     @APIResponse(responseCode = "409", description = "a conflict has occurred")
-    @Tag(name="FORGOTTEN")
-    @Path("forgot")
+    @Tag(name="AUTH")
+    @Path("autoConfirm")
     @Consumes("application/x-www-form-urlencoded")
     @Produces(MediaType.APPLICATION_JSON)
     @Transactional
-    public String forgot(@FormParam("email") final String email) throws Exception {
+    public User autoConfirmForTest(@FormParam("email") final String email) {
 
-        String mail;
-
-        try {
-            // check if there is a email in the database
-            final User usr = userDAO.find("email", email);
-
-            // generate the hash
-            String hashcode = usr.setHash(userDAO.generateHash());
-
-            // send email to user
-            usr.getEmail().equals(email);
-            JavaMailUtil.sendMail(email, hashcode);
-            mail = "connection complete";
-
-        } catch (NoResultException | JwtException | InvalidBuilderException | InvalidClaimException e) {
-            mail = "failed to recover password, try again";
-        }
-        return mail;
+        final User usr = userDAO.find("email", email);
+            usr.setVerified(true);
+            userDAO.update(usr);
+            usr.setHash(null);
+        return usr;
     }
 
+    
+
     @POST
     @APIResponse(responseCode = "200", description = "successfully")
     @APIResponse(responseCode = "409", description = "a conflict has occurred")
-    @Tag(name="FORGOTTEN")
-    @Path("retrieve")
+    @Tag(name="AUTH")
+    @Path("confirmHash")
     @Consumes("application/x-www-form-urlencoded")
     @Produces(MediaType.APPLICATION_JSON)
     @Transactional
-    public String retrieve(@FormParam("hash") final String hash, @FormParam("password") final String password)
+    public String confirmHash(@FormParam("hash") final String hash)
             throws Exception {
 
         String mail;
@@ -149,16 +158,86 @@ public class PublicService {
             // if atribute users's hash is false, cancel change
             usr.getHash().equals(hash);
 
-            usr.setPassword(password);
+            usr.setVerified(true);
             userDAO.update(usr);
             mail = "complete!";
             usr.setHash(null);
 
         } catch (NoResultException e) {
+            mail = "failed, try again";
+        }
+        return mail;
+    }
+
+    @POST
+    @APIResponse(responseCode = "200", description = "successfully")
+    @APIResponse(responseCode = "409", description = "a conflict has occurred")
+    @Tag(name="FORGOT")
+    @Path("forgotPass")
+    @Consumes("application/x-www-form-urlencoded")
+    @Produces(MediaType.APPLICATION_JSON)
+    @Transactional
+    public String forgotPass(@FormParam("email") final String email) throws Exception {
+
+        String mail;
+
+        try {
+            // check if there is a email in the database
+            final User usr = userDAO.find("email", email);
+
+            usr.getVerified().equals(true);
+            // generate the hash
+            String hashcode = usr.setHash(userDAO.generateHash());
+
+            // send email to user
+            usr.getEmail().equals(email);
+            String link = "http://localhost:9080/orion-users-service/retrieve?hash=";
+            JavaMailUtil.sendMail(email, hashcode, link);
+            mail = "connection complete";
+
+        } catch (NoResultException | JwtException | InvalidBuilderException | InvalidClaimException e) {
             mail = "failed to recover password, try again";
         }
         return mail;
     }
+
+    @POST
+    @APIResponse(responseCode = "200", description = "successfully")
+    @APIResponse(responseCode = "409", description = "a conflict has occurred")
+    @Tag(name="FORGOT")
+    @Path("changePass")
+    @Consumes("application/x-www-form-urlencoded")
+    @Produces(MediaType.APPLICATION_JSON)
+    @Transactional
+    public String changePass(@FormParam("hash") final String hash, @FormParam("password") final String password)
+            throws Exception {
+
+        String text;
+
+        try {
+            // check if there is a hash in the database
+            final User usr = userDAO.find("hash", hash);
+            // send email to user
+
+            // if atribute users's hash is false, cancel change
+            usr.getHash().equals(hash);
+            usr.setPassword(password);
+            String email = usr.getEmail();
+            userDAO.update(usr);
+
+            text = "Change password complete!";             
+            JavaMailUtil.sendMail(email, null, text);
+
+            usr.setHash(null);
+
+
+        } catch (NoResultException e) {
+            text = "failed to recover password, try again";
+        }
+        return text;
+    }
+
+  
 
     /**
      * Authenticates the user in the service
@@ -185,7 +264,7 @@ public class PublicService {
         try {
             // check if password is correct
             final User user = userDAO.find("email", email);
-            if (user != null && user.getPassword().equals(userDAO.MD5(password))) {
+            if (user != null && user.getPassword().equals(userDAO.MD5(password)) && user.getVerified() == true) {
                 // generates the token
                 jwt = JwtBuilder.create("jwtBuilder").jwtId(true).claim(Claims.SUBJECT, user.getEmail())
                         .claim("email", user.getEmail()).claim("groups", "users").buildJwt().compact();
@@ -206,7 +285,7 @@ public class PublicService {
      * @param email
      * @return
      */
-    private Boolean quickMail(@FormParam("email") final String email) {
+    private Boolean checkMail(@FormParam("email") final String email) {
         Boolean message;
         try {
             // check if there is a email in the database
@@ -219,17 +298,15 @@ public class PublicService {
         }
         return message;
     }
-///////////////////////////////////////
-    //METHODS from ProtectedService
-///////////////////////////////////////
+
     @GET
-    @APIResponse(responseCode = "200", description = "successfully")
-    @APIResponse(responseCode = "409", description = "a conflict has occurred")
+    @APIResponse(responseCode ="200", description ="successfully")
+    @APIResponse(responseCode ="409", description ="a conflict has occurred")
     @Tag(name="CRUD")
-    @Path("listTest/{id}")
+    @Path("/list/{id}")
     @Produces(MediaType.APPLICATION_JSON)
     @Transactional
-    public User readTest(@PathParam("id") final long id) {
+    public User read(@PathParam("id") final long id) {
         return userDAO.find(id);
     }
 
@@ -239,22 +316,19 @@ public class PublicService {
      * @param id The user's id
      */
     @POST
-    @APIResponse(responseCode = "200", description = "successfully")
-    @APIResponse(responseCode = "409", description = "a conflict has occurred")
+    @APIResponse(responseCode ="200", description ="successfully")
+    @APIResponse(responseCode ="409", description ="a conflict has occurred")
     @Tag(name="CRUD")
-    @Path("deleteTest")
+    @Path("/delete")
     @Consumes("application/x-www-form-urlencoded")
     @Produces(MediaType.APPLICATION_JSON)
     @Transactional
-    public void deleteTest(@FormParam("id") final long id) {
+    public User delete(@FormParam("id") final long id) {
         // find the id and delete the user data
-
-       
-           userDAO.delete(id);
-       
-            
-        
-        
+        final User usr = userDAO.find(id);
+        usr.setVerified(false);
+        userDAO.delete(usr);
+        return usr;
     }
 
     /**
@@ -267,22 +341,39 @@ public class PublicService {
      * @return
      */
     @POST
-    @APIResponse(responseCode = "200", description = "successfully")
-    @APIResponse(responseCode = "409", description = "a conflict has occurred")
+    @APIResponse(responseCode ="200", description ="successfully")
+    @APIResponse(responseCode ="409", description ="a conflict has occurred")
     @Tag(name="CRUD")
-    @Path("updateTest")
+    @Path("/update")
     @Consumes("application/x-www-form-urlencoded")
     @Produces(MediaType.APPLICATION_JSON)
     @Transactional
-    public User updateTest(@FormParam("id") final long id, @FormParam("name") final String name,
-            @FormParam("email") final String email, @FormParam("password") final String password) {
+    public User update(@FormParam("id") final long id, @FormParam("name") final String name,
+            @FormParam("email") final String email, @FormParam("password") final String password)   {
 
-        final User usr = userDAO.find(id);
-        usr.setName(name);
-        usr.setEmail(email);
-        usr.setPassword(password);
-        userDAO.update(usr);
-        return usr;
-    }
+            final User usr = userDAO.find(id);
+
+            if (usr.getVerified() == true) {
+    
+                if(name.isEmpty() || email.isEmpty() || password.isEmpty()){
+                    String message = "error";
+                    throw new NotFoundException(message);
+                }
+                  
+                  else {
+                    usr.setName(name);
+                    usr.setEmail(email);
+                    usr.setPassword(password);
+                    userDAO.update(usr);
+                  }
+    
+                    return usr;
+    
+            } else {
+                    String message = "error";
+                    throw new WebApplicationException(message, Response.Status.CONFLICT);
+            }
+        }
+    
 
 }

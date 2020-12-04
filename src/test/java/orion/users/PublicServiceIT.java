@@ -22,7 +22,10 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
+import javax.json.bind.Jsonb;
+import javax.json.bind.JsonbBuilder;
 
+import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
 import org.apache.http.NameValuePair;
@@ -33,24 +36,40 @@ import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.message.BasicNameValuePair;
 import org.apache.http.util.EntityUtils;
+import org.junit.FixMethodOrder;
+import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestMethodOrder;
+import org.junit.jupiter.api.MethodOrderer.OrderAnnotation;
 import org.junit.jupiter.api.extension.ExtendWith;
 
-import orion.users.service.PublicService;
+import orion.users.model.User;
 
 /**
  * Integration test
+ * 
+ * The test can be done with the service's database or one generated specially
+ * for each test. The ID generated in the create method is random, so it is
+ * recommended to test it in the service database, in which you can know which
+ * IDs can be tested in the other methods
+ * 
+ *
+ * docker-compose up -d mvn liberty:dev enter
+ *
+ * or
+ *
+ * mvn verify
  */
+
 @ExtendWith({ DockerCompose.class })
+
+@TestMethodOrder(OrderAnnotation.class)
 public class PublicServiceIT {
 
-    public static PublicService publicSvc;
 
     private static String API = "/orion-users-service/users/api/v1/";
-
     private String host;
     private Integer port;
-
     private CloseableHttpClient client;
 
     public PublicServiceIT() {
@@ -59,104 +78,151 @@ public class PublicServiceIT {
         port = DockerCompose.users.getFirstMappedPort();
     }
 
-    //4 correct codes, 4 incorrect codes
-
-    //The test can be done with the service's database or one generated specially for each test. 
-    //The ID generated in the create method is random, so it is recommended to test it in the service 
-    //database, in which you can know which IDs can be tested in the other methods
-
-    // docker-compose up -d
-    // mvn liberty:dev
-    // enter
-    //
-    //or
-    //
-    // mvn verify
-
-    //SHOULD WORK
     @Test
+    @Order(1)
     public void testCreate() {
         try {
-
             // Mounting URL, create
             String url = "http://" + host + ":" + port + API + "create";
-
             HttpPost post = new HttpPost(url);
-
             List<NameValuePair> params = new ArrayList<NameValuePair>();
-            params.add(new BasicNameValuePair("name", "mike - testCreate"));
-            params.add(new BasicNameValuePair("email", "mailC1"));
-            params.add(new BasicNameValuePair("password", "pass"));
+            params.add(new BasicNameValuePair("name", "mike"));
+            params.add(new BasicNameValuePair("email", "testorionservice@outlook.com"));
+            params.add(new BasicNameValuePair("password", "thepassword"));
             post.setEntity(new UrlEncodedFormEntity(params));
-
             // execute and getting the response
             HttpResponse response = this.client.execute(post);
-
             // Get response body
             HttpEntity entity = response.getEntity();
             String content = EntityUtils.toString(entity);
+            // Jsonb jsonb = JsonbBuilder.create();
+            // this.user = jsonb.fromJson(content, User.class);
             System.out.println("testCreate >>>>>>>>>>>>" + content);
 
             assertEquals(response.getStatusLine().getStatusCode(), 200);
-
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
-    //SHOULD WORK
-    @Test
-    public void testUpdate() {
+    @Test   
+    @Order(2)
+    public void testAutoConfirm() {
         try {
-
-            // Mounting URL, create
-            String url = "http://" + host + ":" + port + API + "updateTest";
-
+            // Mounting URL
+            String url = "http://" + host + ":" + port + API + "autoConfirm";
             HttpPost post = new HttpPost(url);
-
             List<NameValuePair> params = new ArrayList<NameValuePair>();
-
             //insert below an id already registered in the database
-            params.add(new BasicNameValuePair("id", " "));
-            params.add(new BasicNameValuePair("name", "jonas - updateTest"));
-            params.add(new BasicNameValuePair("email", "mailU1"));
-            params.add(new BasicNameValuePair("password", "passe"));
+            params.add(new BasicNameValuePair("email", "testorionservice@outlook.com"));
             post.setEntity(new UrlEncodedFormEntity(params));
-
             // execute and getting the response
             HttpResponse response = this.client.execute(post);
+            //Get response body
+            HttpEntity entity = response.getEntity();
+            String content = EntityUtils.toString(entity);
+            System.out.println("testAutoConfirm >>>>>>>>>>>>" + content);
+ 
+            assertEquals(response.getStatusLine().getStatusCode(), 200);
+            
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
 
-            // Get response body
+
+    @Test   
+    @Order(3)
+    public void testUpdate() {
+        try {
+            // Mounting URL
+            String url = "http://" + host + ":" + port + API + "update";
+            HttpPost post = new HttpPost(url);
+            List<NameValuePair> params = new ArrayList<NameValuePair>();
+            //insert below an id already registered in the database
+            params.add(new BasicNameValuePair("id", "1000"));
+            params.add(new BasicNameValuePair("name", "joe"));
+            params.add(new BasicNameValuePair("email", "testorionservice@outlook.com"));
+            params.add(new BasicNameValuePair("password", "the_password"));
+            post.setEntity(new UrlEncodedFormEntity(params));
+            // execute and getting the response
+            HttpResponse response = this.client.execute(post);
+            //Get response body
             HttpEntity entity = response.getEntity();
             String content = EntityUtils.toString(entity);
             System.out.println("testUpdate >>>>>>>>>>>>" + content);
-
+ 
             assertEquals(response.getStatusLine().getStatusCode(), 200);
-
+            
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
-    //SHOULD WORK
-    @Test   
-     public void testRead() {
+    @Test
+    @Order(4)
+    public void testCreate2() {
         try {
-
-            
             // Mounting URL, create
+            String url = "http://" + host + ":" + port + API + "create";
+            HttpPost post = new HttpPost(url);
+            List<NameValuePair> params = new ArrayList<NameValuePair>();
+            params.add(new BasicNameValuePair("name", "jonas"));
+            params.add(new BasicNameValuePair("email", "guilhermemoreiramex@gmail.com"));
+            params.add(new BasicNameValuePair("password", "thepassword"));
+            post.setEntity(new UrlEncodedFormEntity(params));
+            // execute and getting the response
+            HttpResponse response = this.client.execute(post);
+            // Get response body
+            HttpEntity entity = response.getEntity();
+            String content = EntityUtils.toString(entity);
+            // Jsonb jsonb = JsonbBuilder.create();
+            // this.user = jsonb.fromJson(content, User.class);
+            System.out.println("testCreate2 >>>>>>>>>>>>" + content);
 
+            assertEquals(response.getStatusLine().getStatusCode(), 200);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    @Test   
+    @Order(5)
+    public void testAutoConfirm2() {
+        try {
+            // Mounting URL
+            String url = "http://" + host + ":" + port + API + "autoConfirm";
+            HttpPost post = new HttpPost(url);
+            List<NameValuePair> params = new ArrayList<NameValuePair>();
             //insert below an id already registered in the database
-            String url = "http://" + host + ":" + port + API + "listTest/" +  " ";
+            params.add(new BasicNameValuePair("email", "guilhermemoreiramex@gmail.com"));
+            post.setEntity(new UrlEncodedFormEntity(params));
+            // execute and getting the response
+            HttpResponse response = this.client.execute(post);
+            //Get response body
+            HttpEntity entity = response.getEntity();
+            String content = EntityUtils.toString(entity);
+            System.out.println("testAutoConfirm2 >>>>>>>>>>>>" + content);
+ 
+            assertEquals(response.getStatusLine().getStatusCode(), 200);
+            
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
 
 
-           
+
+    @Test
+    @Order(6)
+    public void testRead() {
+        try { 
+            // Mounting URL
+            //insert below an id already registered in the database
+            String url = "http://" + host + ":" + port + API + "list/1001";
             HttpGet get = new HttpGet(url);
-
             // execute and getting the response
             HttpResponse response = this.client.execute(get);
-
-
             //Get response body
             HttpEntity entity = response.getEntity();
             String content = EntityUtils.toString(entity);
@@ -169,167 +235,173 @@ public class PublicServiceIT {
         }
     }
 
-    //SHOULD WORK
-    @Test   
-    public void testDelete() {
-       try {
+    @Test
+    @Order(7)
+    public void testLogin() {
+        try {
+            // Mounting URL, create
+            String url = "http://" + host + ":" + port + API + "login";
+            HttpPost post = new HttpPost(url);
+            List<NameValuePair> params = new ArrayList<NameValuePair>();
+            params.add(new BasicNameValuePair("email", "guilhermemoreiramex@gmail.com"));
+            params.add(new BasicNameValuePair("password", "thepassword"));
+            post.setEntity(new UrlEncodedFormEntity(params));
+            // execute and getting the response
+            HttpResponse response = this.client.execute(post);
+            // Get response body
+            HttpEntity entity = response.getEntity();
+            String content = EntityUtils.toString(entity);
+            // Jsonb jsonb = JsonbBuilder.create();
+            // this.user = jsonb.fromJson(content, User.class);
+            System.out.println("testLogin >>>>>>>>>>>>" + content);
+
+            assertEquals(response.getStatusLine().getStatusCode(), 200);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    @Test
+    @Order(8)
+    public void testForgotpass() {
+        try {
+            // Mounting URL, create
+            String url = "http://" + host + ":" + port + API + "forgotPass";
+            HttpPost post = new HttpPost(url);
+            List<NameValuePair> params = new ArrayList<NameValuePair>();
+            params.add(new BasicNameValuePair("email", "guilhermemoreiramex@gmail.com"));
+            post.setEntity(new UrlEncodedFormEntity(params));
+            // execute and getting the response
+            HttpResponse response = this.client.execute(post);
+            // Get response body
+            HttpEntity entity = response.getEntity();
+            String content = EntityUtils.toString(entity);
+            // Jsonb jsonb = JsonbBuilder.create();
+            // this.user = jsonb.fromJson(content, User.class);
+            System.out.println("testForgotpass >>>>>>>>>>>>" + content);
+
+            assertEquals(response.getStatusLine().getStatusCode(), 200);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+//     @Test   
+//     @Order(9)
+//     public void testDelete() {
+//        try {
 
           
-           // Mounting URL, create
-           String url = "http://" + host + ":" + port + API + "deleteTest";
+//            // Mounting URL, create
+//            String url = "http://" + host + ":" + port + API + "delete";
 
 
           
-           HttpPost post = new HttpPost(url);
+//            HttpPost post = new HttpPost(url);
 
-           List<NameValuePair> params = new ArrayList<NameValuePair>();
+//            List<NameValuePair> params = new ArrayList<NameValuePair>();
 
-           //insert below an id already registered in the database
-           params.add(new BasicNameValuePair("id", " "));
-           post.setEntity(new UrlEncodedFormEntity(params));
+//            //insert below an id already registered in the database
+//            params.add(new BasicNameValuePair("id", "1001"));
+//            post.setEntity(new UrlEncodedFormEntity(params));
 
-           // execute and getting the response
-           HttpResponse response = this.client.execute(post);
+//            // execute and getting the response
+//            HttpResponse response = this.client.execute(post);
 
 
-           //Get response body
-           HttpEntity entity = response.getEntity();
-           String content = EntityUtils.toString(entity);
-           System.out.println("testDelete >>>>>>>>>>>>" + content);
-           System.out.println("testDelete code >>>>>>>>>>>>" + response.getStatusLine().getStatusCode() );
+//            //Get response body
+//            HttpEntity entity = response.getEntity();
+//            String content = EntityUtils.toString(entity);
+//            System.out.println("testDelete >>>>>>>>>>>>" + content);
+//            System.out.println("testDelete code >>>>>>>>>>>>" + response.getStatusLine().getStatusCode() );
 
-           assertEquals(response.getStatusLine().getStatusCode(), 200);
+//            assertEquals(response.getStatusLine().getStatusCode(), 200);
            
-       } catch (IOException e) {
-           e.printStackTrace();
-       }
-   }
+//        } catch (IOException e) {
+//            e.printStackTrace();
+//        }
+//    }
 
-   //SHOULD SHOW ERROR
-   @Test
-   public void testNullCreate() {
-       try {
+    /*
+    @Test
+    @Order(10)
+    public void testFailCreate() {
+        try {
+            // Mounting URL, create
+            String url = "http://" + host + ":" + port + API + "create";
+            HttpPost post = new HttpPost(url);
+            List<NameValuePair> params = new ArrayList<NameValuePair>();
+            params.add(new BasicNameValuePair("name", ""));
+            params.add(new BasicNameValuePair("email", ""));
+            params.add(new BasicNameValuePair("password", ""));
+            post.setEntity(new UrlEncodedFormEntity(params));
+            // execute and getting the response
+            HttpResponse response = this.client.execute(post);
+            // Get response body
+            HttpEntity entity = response.getEntity();
+            String content = EntityUtils.toString(entity);
+            // Jsonb jsonb = JsonbBuilder.create();
+            // this.user = jsonb.fromJson(content, User.class);
+            System.out.println("testFailCreate >>>>>>>>>>>>" + content);
 
-           // Mounting URL, create
-           String url = "http://" + host + ":" + port + API + "create";
+            assertEquals(response.getStatusLine().getStatusCode(), 404);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
 
-           HttpPost post = new HttpPost(url);
+    @Test
+    @Order(11)
+    public void testFailCreate2() {
+        try {
+            // Mounting URL, create
+            String url = "http://" + host + ":" + port + API + "create";
+            HttpPost post = new HttpPost(url);
+            List<NameValuePair> params = new ArrayList<NameValuePair>();
+            params.add(new BasicNameValuePair("name", "tyson"));
+            params.add(new BasicNameValuePair("email", "testorionservice@outlook.com"));
+            params.add(new BasicNameValuePair("password", "password"));
+            post.setEntity(new UrlEncodedFormEntity(params));
+            // execute and getting the response
+            HttpResponse response = this.client.execute(post);
+            // Get response body
+            HttpEntity entity = response.getEntity();
+            String content = EntityUtils.toString(entity);
+            // Jsonb jsonb = JsonbBuilder.create();
+            // this.user = jsonb.fromJson(content, User.class);
+            System.out.println("testFailCreate2 >>>>>>>>>>>>" + content);
 
-           List<NameValuePair> params = new ArrayList<NameValuePair>();
+            assertEquals(response.getStatusLine().getStatusCode(), 409);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
 
-           params.add(new BasicNameValuePair("name", ""));
-           params.add(new BasicNameValuePair("email", ""));
-           params.add(new BasicNameValuePair("password", ""));
-           post.setEntity(new UrlEncodedFormEntity(params));
+    @Test
+    @Order(12)
+    public void testFailCreate3() {
+        try {
+            // Mounting URL, create
+            String url = "http://" + host + ":" + port + API + "create";
+            HttpPost post = new HttpPost(url);
+            List<NameValuePair> params = new ArrayList<NameValuePair>();
+            params.add(new BasicNameValuePair("name", "tyson"));
+            params.add(new BasicNameValuePair("password", "password"));
+            post.setEntity(new UrlEncodedFormEntity(params));
+            // execute and getting the response
+            HttpResponse response = this.client.execute(post);
+            // Get response body
+            HttpEntity entity = response.getEntity();
+            String content = EntityUtils.toString(entity);
+            // Jsonb jsonb = JsonbBuilder.create();
+            // this.user = jsonb.fromJson(content, User.class);
+            System.out.println("testFailCreate3 >>>>>>>>>>>>" + content);
 
-           // execute and getting the response
-           HttpResponse response = this.client.execute(post);
-
-           // Get response body
-           HttpEntity entity = response.getEntity();
-           String content = EntityUtils.toString(entity);
-           System.out.println("testNullCreate >>>>>>>>>>>>" + content);
-
-           assertEquals(response.getStatusLine().getStatusCode(), 200);
-
-       } catch (IOException e) {
-           e.printStackTrace();
-       }
-   }
-
-   //SHOULD SHOW ERROR
-   @Test
-   public void testWithoutParamsCreate() {
-       try {
-
-           // Mounting URL, create
-           String url = "http://" + host + ":" + port + API + "create";
-
-           HttpPost post = new HttpPost(url);
-
-           List<NameValuePair> params = new ArrayList<NameValuePair>();
-
-           params.add(new BasicNameValuePair("name", "philip"));
-
-           post.setEntity(new UrlEncodedFormEntity(params));
-
-           // execute and getting the response
-           HttpResponse response = this.client.execute(post);
-
-           // Get response body
-           HttpEntity entity = response.getEntity();
-           String content = EntityUtils.toString(entity);
-           System.out.println("testWithoutParamsCreate >>>>>>>>>>>>" + content);
-
-           assertEquals(response.getStatusLine().getStatusCode(), 200);
-
-       } catch (IOException e) {
-           e.printStackTrace();
-       }
-   }
-
-   //SHOULD SHOW ERROR
-   @Test
-   public void testSameEmailCreate_A() {
-       try {
-
-           // Mounting URL, create
-           String url = "http://" + host + ":" + port + API + "create";
-
-           HttpPost post = new HttpPost(url);
-
-           List<NameValuePair> params = new ArrayList<NameValuePair>();
-
-           params.add(new BasicNameValuePair("name", "mike"));
-           params.add(new BasicNameValuePair("email", "sameemail"));
-           params.add(new BasicNameValuePair("password", "pass"));
-           post.setEntity(new UrlEncodedFormEntity(params));
-
-           // execute and getting the response
-           HttpResponse response = this.client.execute(post);
-
-           // Get response body
-           HttpEntity entity = response.getEntity();
-           String content = EntityUtils.toString(entity);
-           System.out.println("testSameEmailCreate_A >>>>>>>>>>>>" + content);
-
-           assertEquals(response.getStatusLine().getStatusCode(), 200);
-
-       } catch (IOException e) {
-           e.printStackTrace();
-       }
-   }
-
-   //SHOULD SHOW ERROR
-   @Test
-   public void testSameEmailCreate_B() {
-       try {
-
-           // Mounting URL, create
-           String url = "http://" + host + ":" + port + API + "create";
-
-           HttpPost post = new HttpPost(url);
-
-           List<NameValuePair> params = new ArrayList<NameValuePair>();
-
-           params.add(new BasicNameValuePair("name", "tyson"));
-           params.add(new BasicNameValuePair("email", "sameemail"));
-           params.add(new BasicNameValuePair("password", "pass"));
-           post.setEntity(new UrlEncodedFormEntity(params));
-
-           // execute and getting the response
-           HttpResponse response = this.client.execute(post);
-
-           // Get response body
-           HttpEntity entity = response.getEntity();
-           String content = EntityUtils.toString(entity);
-           System.out.println("testSameEmailCreate_B >>>>>>>>>>>>" + content);
-
-           assertEquals(response.getStatusLine().getStatusCode(), 200);
-
-       } catch (IOException e) {
-           e.printStackTrace();
-       }
-   }
+            assertEquals(response.getStatusLine().getStatusCode(), 500);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+    */
 
 }

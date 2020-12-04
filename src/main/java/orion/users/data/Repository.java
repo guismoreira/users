@@ -53,7 +53,11 @@ public abstract class Repository<T> {
         this.em.merge(obj);
     }
 
-    public void delete(Long id) {
+    public void delete(T obj) {
+        this.em.merge(obj);
+    }
+
+    public void deleteFull(Long id) {
         T obj = em.find(this.genericClass(), id);
         this.em.remove(obj);
     }
@@ -120,7 +124,7 @@ public abstract class Repository<T> {
         return hash;
     }
 
-     
+
 
 
 

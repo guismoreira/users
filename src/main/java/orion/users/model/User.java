@@ -24,13 +24,17 @@ import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.FetchType;
 import javax.persistence.GeneratedValue;
+import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.JoinTable;
 import javax.persistence.JoinColumn;
 import javax.persistence.ManyToMany;
+import javax.persistence.SequenceGenerator;
 import javax.persistence.Table;
+import javax.persistence.TableGenerator;
+import javax.validation.constraints.Email;
 import javax.validation.constraints.NotEmpty;
-
+import javax.validation.constraints.Size;
 
 import lombok.Data;
 
@@ -40,11 +44,14 @@ import lombok.Data;
 @Table(name = "USER")
 public class User {
 
-    @Id
-    @GeneratedValue
+@TableGenerator(name = "id_generator", table = "ID_GEN", pkColumnName = "gen_name", valueColumnName = "gen_value",
+pkColumnValue="user_gen", initialValue=1000, allocationSize=10)
+@Id
+@GeneratedValue(strategy = GenerationType.TABLE, generator = "id_generator")
     private long id;
     
-    @NotEmpty(message = "Email is required.")
+    @Email(message = "{user.email.invalid}")
+    @NotEmpty(message = "Please enter email")
     @Column(name = "EMAIL", unique = true)
     private String email;
   
@@ -53,12 +60,31 @@ public class User {
     @Column(name = "PASSWORD")
     private String password;
 
-    @NotEmpty(message = "Name is required.")
+    @NotEmpty(message = "Please enter name")
     @Column(name = "NAME")
     private String name;
 
     @Column(name = "HASH", unique = true)
-    private String hash = null;
+    private String hash;
+
+    @Column(name = "VERIFIED")
+    private Boolean verified = false;
+
+    public User(String name, String email, String password) {
+        super();
+        this.password = password;
+        this.name = name;
+        this.email = email;
+    }
+
+    public User(String email) {
+        super();
+        this.email = email;
+    }
+
+    public User() {
+        super();
+    }
 
     @ManyToMany(cascade = CascadeType.ALL, fetch = FetchType.EAGER)
     @JoinTable(name = "EMAIL_ROLES", joinColumns = {
@@ -119,6 +145,11 @@ public class User {
     public String getHash() {
         
         return this.hash;
+    }
+
+    public Boolean getVerified(){
+
+        return this.verified;
     }
 
    

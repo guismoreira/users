@@ -59,11 +59,11 @@ public class ProtectedService {
     @APIResponse(responseCode ="200", description ="successfully")
     @APIResponse(responseCode ="409", description ="a conflict has occurred")
     @Tag(name="CRUD")
-    @Path("/list/{id}")
+    @Path("/readProtected/{id}")
     @Produces(MediaType.APPLICATION_JSON)
     @RolesAllowed({"users"})
     @Transactional
-    public User read(@PathParam("id") final long id) {
+    public User readProtected(@PathParam("id") final long id) {
         return userDAO.find(id);
     }
 
@@ -76,15 +76,17 @@ public class ProtectedService {
     @APIResponse(responseCode ="200", description ="successfully")
     @APIResponse(responseCode ="409", description ="a conflict has occurred")
     @Tag(name="CRUD")
-    @Path("/delete")
+    @Path("/deleteProtected")
     @Consumes("application/x-www-form-urlencoded")
     @Produces(MediaType.APPLICATION_JSON)
     @RolesAllowed({"users"})
     @Transactional
-    public void delete(@FormParam("id") final long id) {
+    public User deleteProtected(@FormParam("id") final long id) {
         // find the id and delete the user data
         
-        userDAO.delete(id);
+        final User usr = userDAO.find(id);
+        userDAO.delete(usr);
+        return usr;
     }
 
     /**
@@ -100,12 +102,12 @@ public class ProtectedService {
     @APIResponse(responseCode ="200", description ="successfully")
     @APIResponse(responseCode ="409", description ="a conflict has occurred")
     @Tag(name="CRUD")
-    @Path("/update")
+    @Path("/updateProtected")
     @Consumes("application/x-www-form-urlencoded")
     @Produces(MediaType.APPLICATION_JSON)
     @RolesAllowed({"users"})
     @Transactional
-    public User update(@FormParam("id") final long id, @FormParam("name") final String name,
+    public User updateProtected(@FormParam("id") final long id, @FormParam("name") final String name,
             @FormParam("email") final String email, @FormParam("password") final String password) {
 
         final User usr = userDAO.find(id);
